@@ -272,32 +272,47 @@ def ids2(graph, start, goal, max_depth):
 
 
 def greedy_best_first_search(graph, start, goal, verbose=False):
-    open_list = [(graph.get_h(start), start, [start], 0)]
+    def reconstruct_path(parent, node):
+        path = []
+        while node is not None:
+            path.append(node)
+            node = parent[node]
+        return path[::-1]
+
+    # Chỉ lưu (h, current, cost) -> Tiết kiệm RAM tuyệt đối
+    open_list = [(graph.get_h(start), start, 0)]
     closed = set()
     closed_list = []
+    parent = {start: None} # Cuốn sổ truy vết O(1)
     step = 0
 
     while open_list:
-        open_list.sort(key=lambda x: x[0])
-        h, current, path, cost = open_list.pop(0)
-        step += 1
-
-        if verbose:
-            open_nodes = [n[1] for n in open_list]
-            print(f"Bước {step}: Phát triển {current} (h={h}), Open={open_nodes}, Closed={closed_list + [current]}")
-
+        # Tối ưu tốc độ O(1): Sắp xếp ngược và rút ở cuối
+        open_list.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        h, current, cost = open_list.pop()
+        
         if current in closed:
             continue
 
         closed.add(current)
         closed_list.append(current)
+        step += 1
+
+        if verbose:
+            # Lật ngược open_list lại để in log
+            open_nodes = [n[1] for n in reversed(open_list)]
+            print(f"Bước {step}: Phát triển {current} (h={h}), Open={open_nodes}, Closed={closed_list}")
 
         if current == goal:
-            return path, cost
+            return reconstruct_path(parent, current), cost
 
-        for neighbor, edge_cost in graph.get_neighbors(current):
+        neighbors = sorted(graph.get_neighbors(current), key=lambda x: x[0])
+        
+        for neighbor, edge_cost in neighbors:
             if neighbor not in closed:
-                open_list.append((graph.get_h(neighbor), neighbor, path + [neighbor], cost + edge_cost))
+                # Không còn phải cõng theo cái path nặng nề nữa
+                open_list.append((graph.get_h(neighbor), neighbor, cost + edge_cost))
+                parent[neighbor] = current
 
     return None, float('inf')
 
@@ -527,5 +542,3 @@ if __name__ == "__main__":
     path_idastar, cost_idastar = idastar(puzzle, start_state, goal_state, alpha=2, verbose=False)
     print(f"=> Lộ trình IDA* (Chi phí: {cost_idastar}):")
     print_path(path_idastar)
-
-
